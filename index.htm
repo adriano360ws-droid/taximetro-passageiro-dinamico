@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Taxímetro Passageiro - Calcule sua corrida</title>
+    <title>Calcular Corrida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         body { background: #E3F2FD; padding: 20px; }
         .container { max-width: 500px; margin: auto; background: white; border-radius: 24px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #00897B; font-size: 1.6em; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
-        .motorista-info { background: #F1F8E9; padding: 12px; border-radius: 16px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+        h1 { color: #00897B; font-size: 1.6em; text-align: center; margin-bottom: 20px; }
         .campo { margin: 15px 0; }
         label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
         input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ccc; font-size: 1em; }
@@ -28,7 +27,6 @@
 <body>
 <div class="container">
     <h1>🚕 Calcular corrida</h1>
-    <div class="motorista-info" id="motoristaInfo">Carregando...</div>
 
     <div class="campo">
         <label>📏 Distância (km):</label>
@@ -36,7 +34,6 @@
             <input type="number" id="distancia" step="0.1" value="5.0" placeholder="Ex: 5.0">
             <button id="usarLocalizacao">📍 Minha localização</button>
         </div>
-        <div style="font-size: 0.8em; color: #666;">Ou digite a distância aproximada</div>
     </div>
 
     <div class="campo">
@@ -51,43 +48,22 @@
     <div class="valor" id="valorDisplay">R$ 0,00</div>
 
     <button class="btn-whats" id="btnSolicitar">📲 Solicitar corrida por WhatsApp</button>
-    <div class="dica">🔒 O valor foi calculado com base nas tarifas do motorista. Nenhum dado é armazenado.</div>
+    <div class="dica">🔒 Valor estimado com base nas tarifas do motorista. Nenhum dado é armazenado.</div>
 </div>
 
 <script>
-    // Parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
-    let motorista = {
-        nome: urlParams.get('nome') || 'Motorista',
-        whats: urlParams.get('whats') || '',
-        tipo: urlParams.get('tipo') || 'moto',
-        tarifas: {
-            dia: { bandeira: parseFloat(urlParams.get('diaBandeira')) || 0, km: parseFloat(urlParams.get('diaKm')) || 0, minimo: parseFloat(urlParams.get('diaMinimo')) || 0 },
-            noite: { bandeira: parseFloat(urlParams.get('noiteBandeira')) || 0, km: parseFloat(urlParams.get('noiteKm')) || 0, minimo: parseFloat(urlParams.get('noiteMinimo')) || 0 },
-            fimSemana: { bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 0, km: parseFloat(urlParams.get('fimSemanaKm')) || 0, minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 0 }
-        }
+    let numeroWhatsApp = urlParams.get('whats') || '';
+    let tipoVeiculo = urlParams.get('tipo') || 'moto';
+    let nomeMotorista = urlParams.get('nome') || 'Motorista';
+
+    const tarifas = {
+        dia: { bandeira: parseFloat(urlParams.get('diaBandeira')) || 2.50, km: parseFloat(urlParams.get('diaKm')) || 1.15, minimo: parseFloat(urlParams.get('diaMinimo')) || 6.00 },
+        noite: { bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.00, km: parseFloat(urlParams.get('noiteKm')) || 1.30, minimo: parseFloat(urlParams.get('noiteMinimo')) || 6.00 },
+        fimSemana: { bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.00, km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30, minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 6.00 }
     };
 
-    // Se não recebeu tarifas, usa valores padrão (para compatibilidade com link antigo)
-    if (motorista.tarifas.dia.bandeira === 0) {
-        motorista.tarifas = {
-            dia: { bandeira: 2.50, km: 1.15, minimo: 6.00 },
-            noite: { bandeira: 3.00, km: 1.30, minimo: 6.00 },
-            fimSemana: { bandeira: 3.00, km: 1.30, minimo: 6.00 }
-        };
-    }
-
-    // Exibir informações do motorista
-    const tipoIcon = motorista.tipo === 'moto' ? '🏍️' : '🚖';
-    document.getElementById('motoristaInfo').innerHTML = `
-        <strong>${tipoIcon} ${motorista.nome}</strong><br>
-        Veículo: ${motorista.tipo === 'moto' ? 'Moto' : 'Carro'}<br>
-        Clique no link abaixo para solicitar a corrida diretamente no WhatsApp.
-    `;
-
     let periodoSelecionado = 'dia';
-
-    // Configurar botões de período
     document.querySelectorAll('.periodo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('ativo'));
@@ -96,17 +72,14 @@
             calcularValor();
         });
     });
-    // Marcar dia como ativo
     document.querySelector('.periodo-btn[data-periodo="dia"]').classList.add('ativo');
 
-    function arredondar(valor) {
-        return Math.ceil(valor * 10) / 10;
-    }
+    function arredondar(valor) { return Math.ceil(valor * 10) / 10; }
 
     function calcularValor() {
         let distancia = parseFloat(document.getElementById('distancia').value);
         if (isNaN(distancia) || distancia <= 0) distancia = 0;
-        const tarifa = motorista.tarifas[periodoSelecionado];
+        const tarifa = tarifas[periodoSelecionado];
         let valor = tarifa.bandeira + (distancia * tarifa.km);
         valor = arredondar(valor);
         if (valor < tarifa.minimo) valor = tarifa.minimo;
@@ -117,34 +90,27 @@
     document.getElementById('distancia').addEventListener('input', calcularValor);
     calcularValor();
 
-    // Solicitar corrida via WhatsApp
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
-        if (!motorista.whats) {
+        if (!numeroWhatsApp) {
             alert('Número do motorista não disponível. Contate-o diretamente.');
             return;
         }
-        let numero = motorista.whats.replace(/\D/g, '');
+        let numero = numeroWhatsApp.replace(/\D/g, '');
         if (!numero.startsWith('55')) numero = '55' + numero;
-        const texto = `Olá *${motorista.nome}*! Gostaria de solicitar uma corrida de ${motorista.tipo === 'moto' ? 'moto' : 'carro'}.\n\n📏 Distância: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem e destino)`;
+        const texto = `Olá! Gostaria de solicitar uma corrida de ${tipoVeiculo === 'moto' ? 'moto' : 'carro'}.\n\n📏 Distância: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem e destino)`;
         const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
         window.open(url, '_blank');
     });
 
-    // Geolocalização (simula distância a partir da localização atual – exemplo simples)
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
-        if (!navigator.geolocation) {
-            alert('Seu navegador não suporta geolocalização.');
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(pos => {
-            // Simula uma distância aleatória entre 1 e 15 km para demonstração
-            // Em um app real, você chamaria uma API de rotas.
+        if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
+        navigator.geolocation.getCurrentPosition(() => {
             const distSimulada = (Math.random() * 14 + 1).toFixed(1);
             document.getElementById('distancia').value = distSimulada;
             calcularValor();
-            alert(`Distância aproximada detectada: ${distSimulada} km (use o mapa para precisão).`);
-        }, () => alert('Não foi possível obter sua localização.'));
+            alert(`Distância aproximada: ${distSimulada} km. Use o Google Maps para precisão.`);
+        }, () => alert('Não foi possível obter localização.'));
     });
 </script>
 </body>
