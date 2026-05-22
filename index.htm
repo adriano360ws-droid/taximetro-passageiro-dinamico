@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Calcular Corrida</title>
+    <title>Calcular Corrida - Passageiro</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         body { background: #E3F2FD; padding: 20px; }
-        .container { max-width: 500px; margin: auto; background: white; border-radius: 24px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { max-width: 550px; margin: auto; background: white; border-radius: 24px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1 { color: #00897B; font-size: 1.6em; text-align: center; margin-bottom: 20px; }
+        .info-motorista { background: #F1F8E9; padding: 8px; border-radius: 16px; text-align: center; font-size: 0.9em; margin-bottom: 20px; color: #2E7D32; }
         .campo { margin: 15px 0; }
         label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
         input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ccc; font-size: 1em; }
-        .distancia-auto { display: flex; gap: 8px; align-items: center; }
-        .distancia-auto button { background: #2196F3; color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; width: auto; }
+        .row-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
+        .btn-maps, .btn-local { background: #2196F3; color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; flex: 1; font-weight: bold; }
+        .btn-local { background: #4CAF50; }
+        .btn-maps:hover { background: #0b7dda; }
+        .btn-local:hover { background: #3e8e41; }
         .valor { font-size: 2.2em; font-weight: bold; color: #0A5CBF; text-align: center; margin: 20px 0; background: #E0F2FE; padding: 15px; border-radius: 20px; }
         .btn-whats { background: #25D366; color: white; border: none; padding: 14px; border-radius: 40px; font-weight: bold; font-size: 1.1em; width: 100%; cursor: pointer; margin: 10px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-whats:hover { background: #128C7E; }
@@ -21,21 +25,32 @@
         .periodo-btn { flex: 1; background: #E0E0E0; border: none; padding: 10px; border-radius: 40px; cursor: pointer; font-weight: bold; }
         .periodo-btn.ativo { background: #00BFA5; color: white; }
         .dica { font-size: 0.8em; color: #666; text-align: center; margin-top: 15px; }
-        @media (max-width: 450px) { .container { padding: 15px; } .valor { font-size: 1.8em; } }
+        hr { margin: 15px 0; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🚕 Calcular corrida</h1>
+    <div class="info-motorista" id="infoMotorista"></div>
 
+    <!-- Destino (endereço) -->
     <div class="campo">
-        <label>📏 Distância (km):</label>
-        <div class="distancia-auto">
-            <input type="number" id="distancia" step="0.1" value="5.0" placeholder="Ex: 5.0">
-            <button id="usarLocalizacao">📍 Minha localização</button>
+        <label>📍 Destino (endereço):</label>
+        <input type="text" id="destino" placeholder="Ex: Rua das Flores, 123, Centro">
+        <div class="row-buttons">
+            <button class="btn-maps" id="abrirMaps">🗺️ Calcular rota</button>
+            <button class="btn-local" id="usarLocalizacao">📍 Usar minha localização</button>
         </div>
+        <div style="font-size: 0.8em; color: #555; margin-top: 5px;">Clique em "Calcular rota" para ver a distância no Google Maps e digite abaixo.</div>
     </div>
 
+    <!-- Distância manual -->
+    <div class="campo">
+        <label>📏 Distância (km):</label>
+        <input type="number" id="distancia" step="0.1" value="5.0" placeholder="Ex: 5.0">
+    </div>
+
+    <!-- Período -->
     <div class="campo">
         <label>⏰ Período:</label>
         <div class="periodo-buttons" id="periodoButtons">
@@ -52,18 +67,37 @@
 </div>
 
 <script>
+    // ---------- PARÂMETROS DA URL (enviados pelo motorista) ----------
     const urlParams = new URLSearchParams(window.location.search);
+    let nomeMotorista = urlParams.get('nome') || 'Motorista';
     let numeroWhatsApp = urlParams.get('whats') || '';
     let tipoVeiculo = urlParams.get('tipo') || 'moto';
-    let nomeMotorista = urlParams.get('nome') || 'Motorista';
-
+    // Tarifas (com valores padrão caso não enviados)
     const tarifas = {
-        dia: { bandeira: parseFloat(urlParams.get('diaBandeira')) || 2.50, km: parseFloat(urlParams.get('diaKm')) || 1.15, minimo: parseFloat(urlParams.get('diaMinimo')) || 6.00 },
-        noite: { bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.00, km: parseFloat(urlParams.get('noiteKm')) || 1.30, minimo: parseFloat(urlParams.get('noiteMinimo')) || 6.00 },
-        fimSemana: { bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.00, km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30, minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 6.00 }
+        dia: {
+            bandeira: parseFloat(urlParams.get('diaBandeira')) || 2.50,
+            km: parseFloat(urlParams.get('diaKm')) || 1.15,
+            minimo: parseFloat(urlParams.get('diaMinimo')) || 6.00
+        },
+        noite: {
+            bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.00,
+            km: parseFloat(urlParams.get('noiteKm')) || 1.30,
+            minimo: parseFloat(urlParams.get('noiteMinimo')) || 6.00
+        },
+        fimSemana: {
+            bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.00,
+            km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30,
+            minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 6.00
+        }
     };
 
+    // Exibe informações do motorista (opcional, pode remover se quiser não mostrar)
+    const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
+    document.getElementById('infoMotorista').innerHTML = `${tipoIcon} ${nomeMotorista} - ${tipoVeiculo === 'moto' ? 'Moto' : 'Carro'}`;
+
     let periodoSelecionado = 'dia';
+
+    // Configurar botões de período
     document.querySelectorAll('.periodo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('ativo'));
@@ -90,6 +124,53 @@
     document.getElementById('distancia').addEventListener('input', calcularValor);
     calcularValor();
 
+    // Botão "Calcular rota" - abre Google Maps com destino e localização atual
+    document.getElementById('abrirMaps').addEventListener('click', () => {
+        const destino = document.getElementById('destino').value.trim();
+        if (!destino) {
+            alert('Por favor, digite o destino.');
+            return;
+        }
+        // Tenta obter a localização atual para usar como origem
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const origem = `${pos.coords.latitude},${pos.coords.longitude}`;
+                    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origem)}&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+                    window.open(url, '_blank');
+                },
+                () => {
+                    // Se não conseguir localização, abre com destino apenas
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+                    window.open(url, '_blank');
+                }
+            );
+        } else {
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+            window.open(url, '_blank');
+        }
+    });
+
+    // Botão "Usar minha localização" - simula distância (apenas exemplo)
+    document.getElementById('usarLocalizacao').addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            alert('Seu navegador não suporta geolocalização.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            () => {
+                // Em uma aplicação real, você chamaria uma API de rotas (ex: OSRM) para calcular a distância até o destino.
+                // Aqui é apenas uma simulação para demonstração.
+                const distSimulada = (Math.random() * 14 + 1).toFixed(1);
+                document.getElementById('distancia').value = distSimulada;
+                calcularValor();
+                alert(`Distância aproximada: ${distSimulada} km.\nPara mais precisão, use o botão "Calcular rota" e veja a distância real no Google Maps.`);
+            },
+            () => alert('Não foi possível obter sua localização.')
+        );
+    });
+
+    // Enviar solicitação via WhatsApp
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
         if (!numeroWhatsApp) {
@@ -98,19 +179,10 @@
         }
         let numero = numeroWhatsApp.replace(/\D/g, '');
         if (!numero.startsWith('55')) numero = '55' + numero;
-        const texto = `Olá! Gostaria de solicitar uma corrida de ${tipoVeiculo === 'moto' ? 'moto' : 'carro'}.\n\n📏 Distância: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem e destino)`;
-        const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+        const destino = document.getElementById('destino').value.trim() || 'não informado';
+        const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculo === 'moto' ? 'moto' : 'carro'}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
+        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
         window.open(url, '_blank');
-    });
-
-    document.getElementById('usarLocalizacao').addEventListener('click', () => {
-        if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
-        navigator.geolocation.getCurrentPosition(() => {
-            const distSimulada = (Math.random() * 14 + 1).toFixed(1);
-            document.getElementById('distancia').value = distSimulada;
-            calcularValor();
-            alert(`Distância aproximada: ${distSimulada} km. Use o Google Maps para precisão.`);
-        }, () => alert('Não foi possível obter localização.'));
     });
 </script>
 </body>
