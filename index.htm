@@ -24,6 +24,7 @@
         .periodo-buttons { display: flex; gap: 10px; margin: 10px 0; }
         .periodo-btn { flex: 1; background: #E0E0E0; border: none; padding: 10px; border-radius: 40px; cursor: pointer; font-weight: bold; }
         .periodo-btn.ativo { background: #00BFA5; color: white; }
+        .explicacao { background: #FFF8E1; padding: 12px; border-radius: 16px; font-size: 0.85em; color: #5D4037; margin: 15px 0; border-left: 4px solid #FFC107; }
         .dica { font-size: 0.8em; color: #666; text-align: center; margin-top: 15px; }
         hr { margin: 15px 0; }
     </style>
@@ -62,6 +63,9 @@
 
     <div class="valor" id="valorDisplay">R$ 0,00</div>
 
+    <!-- Explicação dinâmica da tarifa mínima -->
+    <div class="explicacao" id="explicacaoMinima"></div>
+
     <button class="btn-whats" id="btnSolicitar">📲 Solicitar corrida por WhatsApp</button>
     <div class="dica">🔒 Valor estimado com base nas tarifas do motorista. Nenhum dado é armazenado.</div>
 </div>
@@ -72,6 +76,7 @@
     let nomeMotorista = urlParams.get('nome') || 'Motorista';
     let numeroWhatsApp = urlParams.get('whats') || '';
     let tipoVeiculo = urlParams.get('tipo') || 'moto';
+
     // Tarifas (com valores padrão caso não enviados)
     const tarifas = {
         dia: {
@@ -104,6 +109,7 @@
             btn.classList.add('ativo');
             periodoSelecionado = btn.dataset.periodo;
             calcularValor();
+            atualizarExplicacaoMinima();
         });
     });
     document.querySelector('.periodo-btn[data-periodo="dia"]').classList.add('ativo');
@@ -121,8 +127,36 @@
         return { distancia, valor };
     }
 
+    // Função para atualizar o texto explicativo sobre a tarifa mínima
+    function atualizarExplicacaoMinima() {
+        const tarifa = tarifas[periodoSelecionado];
+        const bandeira = tarifa.bandeira;
+        const kmValor = tarifa.km;
+        const minimo = tarifa.minimo;
+
+        // Calcula a distância máxima que ainda resulta no valor mínimo
+        // Fórmula: minimo = bandeira + (distancia_max * kmValor)
+        // => distancia_max = (minimo - bandeira) / kmValor
+        let distanciaMax = (minimo - bandeira) / kmValor;
+        let texto = '';
+
+        if (distanciaMax <= 0) {
+            // Se a bandeira já for maior ou igual ao mínimo, o mínimo sempre será a bandeira (caso raro)
+            texto = `🔔 *Tarifa mínima*: A corrida já começa com o valor mínimo de R$ ${minimo.toFixed(2).replace('.', ',')} (bandeirada).`;
+        } else {
+            // Arredonda para uma casa decimal para exibição
+            distanciaMax = Math.ceil(distanciaMax * 10) / 10;
+            texto = `🔔 *Tarifa mínima de R$ ${minimo.toFixed(2).replace('.', ',')}*: vale para corridas de até **${distanciaMax.toFixed(1)} km** neste período. 
+Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirada + R$ ${kmValor.toFixed(2).replace('.', ',')} por km adicional.`;
+        }
+
+        document.getElementById('explicacaoMinima').innerHTML = texto;
+    }
+
+    // Atualiza explicação quando a página carrega e quando o período muda (já chamado acima)
     document.getElementById('distancia').addEventListener('input', calcularValor);
     calcularValor();
+    atualizarExplicacaoMinima();
 
     // Botão "Calcular rota" - abre Google Maps com destino e localização atual
     document.getElementById('abrirMaps').addEventListener('click', () => {
@@ -131,7 +165,6 @@
             alert('Por favor, digite o destino.');
             return;
         }
-        // Tenta obter a localização atual para usar como origem
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -140,7 +173,6 @@
                     window.open(url, '_blank');
                 },
                 () => {
-                    // Se não conseguir localização, abre com destino apenas
                     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
                     window.open(url, '_blank');
                 }
@@ -159,8 +191,7 @@
         }
         navigator.geolocation.getCurrentPosition(
             () => {
-                // Em uma aplicação real, você chamaria uma API de rotas (ex: OSRM) para calcular a distância até o destino.
-                // Aqui é apenas uma simulação para demonstração.
+                // Simula distância para demonstração (substitua por API de rotas se quiser)
                 const distSimulada = (Math.random() * 14 + 1).toFixed(1);
                 document.getElementById('distancia').value = distSimulada;
                 calcularValor();
