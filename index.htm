@@ -26,7 +26,6 @@
         .periodo-btn.ativo { background: #00BFA5; color: white; }
         .explicacao { background: #FFF8E1; padding: 12px; border-radius: 16px; font-size: 0.85em; color: #5D4037; margin: 15px 0; border-left: 4px solid #FFC107; }
         .dica { font-size: 0.8em; color: #666; text-align: center; margin-top: 15px; }
-        hr { margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -63,8 +62,8 @@
 
     <div class="valor" id="valorDisplay">R$ 0,00</div>
 
-    <!-- Explicação dinâmica da tarifa mínima -->
-    <div class="explicacao" id="explicacaoMinima"></div>
+    <!-- Explicação dinâmica da tarifa mínima (só aparece se mínimo > 0) -->
+    <div class="explicacao" id="explicacaoMinima" style="display: none;"></div>
 
     <button class="btn-whats" id="btnSolicitar">📲 Solicitar corrida por WhatsApp</button>
     <div class="dica">🔒 Valor estimado com base nas tarifas do motorista. Nenhum dado é armazenado.</div>
@@ -77,26 +76,41 @@
     let numeroWhatsApp = urlParams.get('whats') || '';
     let tipoVeiculo = urlParams.get('tipo') || 'moto';
 
-    // Tarifas (com valores padrão caso não enviados)
+    // 🔍 Depuração: exibe no console os parâmetros lidos
+    console.log('Parâmetros da URL:', {
+        nome: nomeMotorista,
+        whats: numeroWhatsApp,
+        tipo: tipoVeiculo
+    });
+
+    // Se o número não foi encontrado, tenta recuperar de uma outra forma (ex: parâmetro "whats" com codificação diferente)
+    if (!numeroWhatsApp && window.location.search.includes('whats=')) {
+        // Tenta extrair manualmente
+        const match = window.location.search.match(/[?&]whats=([^&]+)/);
+        if (match) numeroWhatsApp = decodeURIComponent(match[1]);
+        console.log('Número recuperado manualmente:', numeroWhatsApp);
+    }
+
+    // Tarifas (valores padrão ajustados para as tarifas de MOTO do ADRIANO)
     const tarifas = {
         dia: {
-            bandeira: parseFloat(urlParams.get('diaBandeira')) || 2.50,
+            bandeira: parseFloat(urlParams.get('diaBandeira')) || 3.00,
             km: parseFloat(urlParams.get('diaKm')) || 1.15,
-            minimo: parseFloat(urlParams.get('diaMinimo')) || 6.00
+            minimo: parseFloat(urlParams.get('diaMinimo')) || 0
         },
         noite: {
-            bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.00,
+            bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.50,
             km: parseFloat(urlParams.get('noiteKm')) || 1.30,
-            minimo: parseFloat(urlParams.get('noiteMinimo')) || 6.00
+            minimo: parseFloat(urlParams.get('noiteMinimo')) || 0
         },
         fimSemana: {
-            bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.00,
+            bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.50,
             km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30,
-            minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 6.00
+            minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 0
         }
     };
 
-    // Exibe informações do motorista (opcional, pode remover se quiser não mostrar)
+    // Exibe informações do motorista (com tipo de veículo correto)
     const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
     document.getElementById('infoMotorista').innerHTML = `${tipoIcon} ${nomeMotorista} - ${tipoVeiculo === 'moto' ? 'Moto' : 'Carro'}`;
 
@@ -122,49 +136,44 @@
         const tarifa = tarifas[periodoSelecionado];
         let valor = tarifa.bandeira + (distancia * tarifa.km);
         valor = arredondar(valor);
-        if (valor < tarifa.minimo) valor = tarifa.minimo;
+        if (tarifa.minimo > 0 && valor < tarifa.minimo) valor = tarifa.minimo;
         document.getElementById('valorDisplay').innerHTML = `R$ ${valor.toFixed(2).replace('.', ',')}`;
         return { distancia, valor };
     }
 
-    // Função para atualizar o texto explicativo sobre a tarifa mínima
     function atualizarExplicacaoMinima() {
         const tarifa = tarifas[periodoSelecionado];
+        const minimo = tarifa.minimo;
+        const explicacaoDiv = document.getElementById('explicacaoMinima');
+        if (minimo <= 0) {
+            explicacaoDiv.style.display = 'none';
+            return;
+        }
         const bandeira = tarifa.bandeira;
         const kmValor = tarifa.km;
-        const minimo = tarifa.minimo;
-
-        // Calcula a distância máxima que ainda resulta no valor mínimo
-        // Fórmula: minimo = bandeira + (distancia_max * kmValor)
-        // => distancia_max = (minimo - bandeira) / kmValor
         let distanciaMax = (minimo - bandeira) / kmValor;
         let texto = '';
-
         if (distanciaMax <= 0) {
-            // Se a bandeira já for maior ou igual ao mínimo, o mínimo sempre será a bandeira (caso raro)
             texto = `🔔 *Tarifa mínima*: A corrida já começa com o valor mínimo de R$ ${minimo.toFixed(2).replace('.', ',')} (bandeirada).`;
         } else {
-            // Arredonda para uma casa decimal para exibição
             distanciaMax = Math.ceil(distanciaMax * 10) / 10;
-            texto = `🔔 *Tarifa mínima de R$ ${minimo.toFixed(2).replace('.', ',')}*: vale para corridas de até **${distanciaMax.toFixed(1)} km** neste período. 
-Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirada + R$ ${kmValor.toFixed(2).replace('.', ',')} por km adicional.`;
+            texto = `🔔 *Tarifa mínima de R$ ${minimo.toFixed(2).replace('.', ',')}*: vale para corridas de até **${distanciaMax.toFixed(1)} km** neste período. Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirada + R$ ${kmValor.toFixed(2).replace('.', ',')} por km adicional.`;
         }
-
-        document.getElementById('explicacaoMinima').innerHTML = texto;
+        explicacaoDiv.innerHTML = texto;
+        explicacaoDiv.style.display = 'block';
     }
 
-    // Atualiza explicação quando a página carrega e quando o período muda (já chamado acima)
-    document.getElementById('distancia').addEventListener('input', calcularValor);
+    document.getElementById('distancia').addEventListener('input', () => {
+        calcularValor();
+        atualizarExplicacaoMinima();
+    });
     calcularValor();
     atualizarExplicacaoMinima();
 
-    // Botão "Calcular rota" - abre Google Maps com destino e localização atual
+    // Botão "Calcular rota"
     document.getElementById('abrirMaps').addEventListener('click', () => {
         const destino = document.getElementById('destino').value.trim();
-        if (!destino) {
-            alert('Por favor, digite o destino.');
-            return;
-        }
+        if (!destino) { alert('Por favor, digite o destino.'); return; }
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -183,15 +192,11 @@ Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirad
         }
     });
 
-    // Botão "Usar minha localização" - simula distância (apenas exemplo)
+    // Botão "Usar minha localização"
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
-        if (!navigator.geolocation) {
-            alert('Seu navegador não suporta geolocalização.');
-            return;
-        }
+        if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
         navigator.geolocation.getCurrentPosition(
             () => {
-                // Simula distância para demonstração (substitua por API de rotas se quiser)
                 const distSimulada = (Math.random() * 14 + 1).toFixed(1);
                 document.getElementById('distancia').value = distSimulada;
                 calcularValor();
@@ -205,7 +210,8 @@ Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirad
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
         if (!numeroWhatsApp) {
-            alert('Número do motorista não disponível. Contate-o diretamente.');
+            alert('❌ Número do motorista não disponível. O link que você usou pode estar desatualizado. Solicite um novo link ao motorista.');
+            console.error('WhatsApp não encontrado nos parâmetros. URL:', window.location.href);
             return;
         }
         let numero = numeroWhatsApp.replace(/\D/g, '');
