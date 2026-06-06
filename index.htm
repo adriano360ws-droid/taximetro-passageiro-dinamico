@@ -29,6 +29,7 @@
         .aviso-erro { background: #FFEBEE; color: #C62828; padding: 10px; border-radius: 12px; text-align: center; margin: 10px 0; display: none; }
         .local-info { background: #E8F5E9; padding: 10px; border-radius: 12px; margin: 8px 0; display: none; font-size: 0.9em; }
         .btn-copiar { background: #673AB7; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9em; margin-top: 5px; }
+        .aviso-permissao { background: #FFF3E0; padding: 10px; border-radius: 12px; margin: 8px 0; font-size: 0.9em; color: #E65100; display: none; }
     </style>
 </head>
 <body>
@@ -41,6 +42,11 @@
         <label>📍 Destino (endereço):</label>
         <input type="text" id="destino" placeholder="Ex: Rua das Flores, 123, Centro">
         
+        <!-- Aviso de permissão -->
+        <div class="aviso-permissao" id="avisoPermissao">
+            ⚠️ Para usar sua localização, vá em <strong>Configurações &gt; Permissões &gt; Localização</strong> e libere para este aplicativo.
+        </div>
+
         <!-- Área que mostra e copia localização -->
         <div class="local-info" id="blocoLocal">
             <strong>✅ Localização salva:</strong><br>
@@ -93,6 +99,7 @@
     };
 
     const avisoErro = document.getElementById('avisoErro');
+    const avisoPermissao = document.getElementById('avisoPermissao');
     if (!numeroValido) { avisoErro.style.display = 'block'; avisoErro.textContent = '⚠️ Erro no número do WhatsApp.'; }
 
     const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
@@ -156,10 +163,16 @@
                     window.open(urlRota, '_blank');
                 },
                 err => {
-                    alert('Permita acesso à localização para ver a rota.');
+                    if (err.code === 1) {
+                        avisoPermissao.style.display = 'block';
+                        alert('❌ Permissão de localização NEGADA! Libere nas configurações do aplicativo.');
+                    } else {
+                        alert('❌ Não foi possível pegar localização. Abrindo só destino.');
+                    }
                     const urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
                     window.open(urlRota, '_blank');
-                }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
         } else {
             const urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
@@ -167,9 +180,21 @@
         }
     });
 
-    // 📍 Usar minha localização - TUDO FUNCIONANDO AGORA
+    // 📍 Usar minha localização - CORRIGIDO PARA PERMISSÃO
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
-        if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
+        avisoPermissao.style.display = 'none'; // Esconde aviso antigo
+        if (!navigator.geolocation) { 
+            alert('❌ Geolocalização não suportada neste aparelho.'); 
+            return; 
+        }
+        
+        // ⚙️ Configuração FORTE para pegar GPS
+        const opcoesGPS = {
+            enableHighAccuracy: true, // Precisão máxima
+            timeout: 15000,           // Espera 15s
+            maximumAge: 0             // Não usa local antiga
+        };
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 minhaLat = pos.coords.latitude.toFixed(6);
@@ -188,9 +213,23 @@
                 document.getElementById('distancia').value = dist.toFixed(1);
                 calcularValor();
 
-                alert(`✅ Localização salva!\nLat: ${minhaLat}\nLng: ${minhaLng}`);
+                alert(`✅ Localização salva com SUCESSO!\nLat: ${minhaLat}\nLng: ${minhaLng}`);
             },
-            () => alert('❌ Erro ao pegar localização. Verifique permissão.')
+            (erro) => {
+                console.log('Erro GPS:', erro.code, erro.message);
+                // Trata cada erro diferente
+                if (erro.code === 1) {
+                    avisoPermissao.style.display = 'block';
+                    alert('❌ PERMISSÃO NEGADA!\n\nVocê precisa ir em:\nConfigurações > Aplicativos > Alphainvento > Permissões > Localização > Permitir.');
+                } else if (erro.code === 2) {
+                    alert('❌ Sinal de GPS fraco ou indisponível.\n\nVá para área aberta ou digite o endereço manualmente.');
+                } else if (erro.code === 3) {
+                    alert('❌ Demorou muito para encontrar.\n\nTente novamente ou digite o endereço.');
+                } else {
+                    alert('❌ Erro desconhecido: ' + erro.message);
+                }
+            },
+            opcoesGPS
         );
     });
 
