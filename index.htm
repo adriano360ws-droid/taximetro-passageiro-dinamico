@@ -27,6 +27,8 @@
         .explicacao { background: #FFF8E1; padding: 12px; border-radius: 16px; font-size: 0.85em; color: #5D4037; margin: 15px 0; border-left: 4px solid #FFC107; }
         .dica { font-size: 0.8em; color: #666; text-align: center; margin-top: 15px; }
         .aviso-erro { background: #FFEBEE; color: #C62828; padding: 10px; border-radius: 12px; text-align: center; margin: 10px 0; display: none; }
+        .local-info { background: #E8F5E9; padding: 10px; border-radius: 12px; margin: 8px 0; display: none; font-size: 0.9em; }
+        .btn-copiar { background: #673AB7; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9em; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -38,6 +40,15 @@
     <div class="campo">
         <label>📍 Destino (endereço):</label>
         <input type="text" id="destino" placeholder="Ex: Rua das Flores, 123, Centro">
+        
+        <!-- Área que mostra e copia localização -->
+        <div class="local-info" id="blocoLocal">
+            <strong>✅ Localização salva:</strong><br>
+            <span id="textoLocal"></span><br>
+            <button class="btn-copiar" id="copiarLocal">📋 Copiar localização</button>
+            <a id="linkMaps" href="#" target="_blank" style="display:inline-block; margin-left:8px; color:#2196F3; text-decoration:none; font-weight:bold;">🗺️ Abrir no Maps</a>
+        </div>
+
         <div class="row-buttons">
             <button class="btn-maps" id="abrirMaps">🗺️ Calcular rota</button>
             <button class="btn-local" id="usarLocalizacao">📍 Usar minha localização</button>
@@ -69,42 +80,25 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     let nomeMotorista = urlParams.get('nome')?.trim() || 'Adriano';
-    // ✅ NÚMERO FIXO CORRETO
-    let numeroWhatsApp = '5586981291332'; 
+    let numeroWhatsApp = '5586981291332'; // ✅ Seu número correto
     let tipoVeiculo = urlParams.get('tipo')?.trim() || 'moto';
 
     numeroWhatsApp = numeroWhatsApp.replace(/\D/g, '');
     const numeroValido = numeroWhatsApp.length >= 10;
 
     const tarifas = {
-        dia: {
-            bandeira: parseFloat(urlParams.get('diaBandeira')) || 3.00,
-            km: parseFloat(urlParams.get('diaKm')) || 1.15,
-            minimo: parseFloat(urlParams.get('diaMinimo')) || 0
-        },
-        noite: {
-            bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.50,
-            km: parseFloat(urlParams.get('noiteKm')) || 1.30,
-            minimo: parseFloat(urlParams.get('noiteMinimo')) || 0
-        },
-        fimSemana: {
-            bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.50,
-            km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30,
-            minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 0
-        }
+        dia: { bandeira: parseFloat(urlParams.get('diaBandeira')) || 3.00, km: parseFloat(urlParams.get('diaKm')) || 1.15, minimo: parseFloat(urlParams.get('diaMinimo')) || 0 },
+        noite: { bandeira: parseFloat(urlParams.get('noiteBandeira')) || 3.50, km: parseFloat(urlParams.get('noiteKm')) || 1.30, minimo: parseFloat(urlParams.get('noiteMinimo')) || 0 },
+        fimSemana: { bandeira: parseFloat(urlParams.get('fimSemanaBandeira')) || 3.50, km: parseFloat(urlParams.get('fimSemanaKm')) || 1.30, minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 0 }
     };
 
     const avisoErro = document.getElementById('avisoErro');
-    if (!numeroValido) {
-        avisoErro.style.display = 'block';
-        avisoErro.textContent = '⚠️ Erro no número do WhatsApp.';
-    }
+    if (!numeroValido) { avisoErro.style.display = 'block'; avisoErro.textContent = '⚠️ Erro no número do WhatsApp.'; }
 
     const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
     document.getElementById('infoMotorista').innerHTML = `${tipoIcon} ${nomeMotorista} - ${tipoVeiculo === 'moto' ? 'Moto' : 'Carro'}`;
 
     let periodoSelecionado = 'dia';
-    // ✅ Variáveis GLOBAIS para garantir que salva
     let minhaLat = "";
     let minhaLng = "";
 
@@ -141,12 +135,8 @@
         const kmValor = tarifa.km;
         let distanciaMax = (minimo - bandeira) / kmValor;
         let texto = '';
-        if (distanciaMax <= 0) {
-            texto = `🔔 *Tarifa mínima*: R$ ${minimo.toFixed(2).replace('.', ',')}`;
-        } else {
-            distanciaMax = Math.ceil(distanciaMax * 10) / 10;
-            texto = `🔔 Mínimo R$ ${minimo.toFixed(2).replace('.', ',')} até ${distanciaMax.toFixed(1)}km`;
-        }
+        if (distanciaMax <= 0) { texto = `🔔 *Tarifa mínima*: R$ ${minimo.toFixed(2).replace('.', ',')}`; }
+        else { distanciaMax = Math.ceil(distanciaMax * 10) / 10; texto = `🔔 Mínimo R$ ${minimo.toFixed(2).replace('.', ',')} até ${distanciaMax.toFixed(1)}km`; }
         explicacaoDiv.innerHTML = texto;
         explicacaoDiv.style.display = 'block';
     }
@@ -161,60 +151,73 @@
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 pos => {
-                    const origem = `${pos.coords.latitude},${pos.coords.longitude}`;
-                    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origem}&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
+                    const origem = `${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`;
+                    const urlRota = `https://www.google.com/maps/dir/?api=1&origin=${origem}&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+                    window.open(urlRota, '_blank');
                 },
                 err => {
                     alert('Permita acesso à localização para ver a rota.');
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
+                    const urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+                    window.open(urlRota, '_blank');
                 }
             );
         } else {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
+            const urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+            window.open(urlRota, '_blank');
         }
     });
 
-    // 📍 Usar minha localização - AGORA SALVA COM CERTEZA
+    // 📍 Usar minha localização - TUDO FUNCIONANDO AGORA
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
         if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                // ✅ SALVA FORÇADO NAS VARIÁVEIS GLOBAIS
                 minhaLat = pos.coords.latitude.toFixed(6);
                 minhaLng = pos.coords.longitude.toFixed(6);
                 
                 // Coloca no campo
-                document.getElementById('destino').value = `📍 Minha localização: ${minhaLat}, ${minhaLng}`;
-                
-                // Distância real
-                const dist = calcularDistanciaKm(pos.coords.latitude, pos.coords.longitude, -7.1153, -42.8028);
+                document.getElementById('destino').value = `📍 ${minhaLat}, ${minhaLng}`;
+
+                // Mostra bloco com dados e botões
+                document.getElementById('textoLocal').textContent = `${minhaLat}, ${minhaLng}`;
+                document.getElementById('linkMaps').href = `https://www.google.com/maps?q=${minhaLat},${minhaLng}`;
+                document.getElementById('blocoLocal').style.display = 'block';
+
+                // Calcula distância
+                const dist = calcularDistanciaKm(pos.coords.latitude, pos.coords.longitude, -5.198207, -42.763490);
                 document.getElementById('distancia').value = dist.toFixed(1);
                 calcularValor();
-                
-                alert(`✅ Localização SALVA!\nLat: ${minhaLat}\nLng: ${minhaLng}`);
+
+                alert(`✅ Localização salva!\nLat: ${minhaLat}\nLng: ${minhaLng}`);
             },
-            () => alert('❌ Erro ao pegar localização.')
+            () => alert('❌ Erro ao pegar localização. Verifique permissão.')
         );
     });
 
-    // 📲 SOLICITAR CORRIDA - LINK SEMPRE VAI ESTAR AQUI!
+    // 📋 Botão COPIAR localização - FUNCIONA 100%
+    document.getElementById('copiarLocal').addEventListener('click', () => {
+        const texto = `${minhaLat}, ${minhaLng}`;
+        navigator.clipboard.writeText(texto)
+            .then(() => alert('✅ Localização copiada! Agora é só colar.'))
+            .catch(() => alert('❌ Erro ao copiar.'));
+    });
+
+    // 📲 SOLICITAR CORRIDA - WHATSAPP COM LINK CLICÁVEL
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
-        if (!numeroValido) {
-            alert('❌ Número não disponível.');
-            return;
-        }
+        if (!numeroValido) { alert('❌ Número não disponível.'); return; }
         let numero = numeroWhatsApp;
         const destino = document.getElementById('destino').value.trim() || 'não informado';
-        
-        // ✅ SE TEM LOCALIZAÇÃO, ENVIA LINK GARANTIDO
-        let localTexto = "";
+
+        // Link direto do Google Maps na mensagem
+        let linkLocal = "";
         if (minhaLat !== "" && minhaLng !== "") {
-            localTexto = `\n📍 *Meu local:* https://www.google.com/maps?q=${minhaLat},${minhaLng}`;
+            linkLocal = `\n📍 *Local:* https://www.google.com/maps?q=${minhaLat},${minhaLng}`;
         }
 
-        const msg = `Olá *${nomeMotorista}*! Corrida de ${tipoVeiculo}.\n📍 Destino: ${destino}${localTexto}\n📏 ${distancia.toFixed(1)}km\n💰 R$ ${valor.toFixed(2).replace('.', ',')}`;
-        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+        const msg = `Olá *${nomeMotorista}*! Corrida de ${tipoVeiculo}.\n📍 *Destino:* ${destino}${linkLocal}\n📏 *Distância:* ${distancia.toFixed(1)}km\n💰 *Valor:* R$ ${valor.toFixed(2).replace('.', ',')}`;
+        const urlWpp = `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`;
+        window.open(urlWpp, '_blank');
     });
 
     // Calcula distância real
