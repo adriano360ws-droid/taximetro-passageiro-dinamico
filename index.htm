@@ -206,21 +206,22 @@
         );
     });
 
-    // Enviar solicitação via WhatsApp
-    document.getElementById('btnSolicitar').addEventListener('click', () => {
-        const { distancia, valor } = calcularValor();
-        if (!numeroWhatsApp) {
-            alert('❌ Número do motorista não disponível. O link que você usou pode estar desatualizado. Solicite um novo link ao motorista.');
-            console.error('WhatsApp não encontrado nos parâmetros. URL:', window.location.href);
-            return;
-        }
-        let numero = numeroWhatsApp.replace(/\D/g, '');
-        if (!numero.startsWith('55')) numero = '55' + numero;
-        const destino = document.getElementById('destino').value.trim() || 'não informado';
-        const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculo === 'moto' ? 'moto' : 'carro'}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
-        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-        window.open(url, '_blank');
-    });
+// Enviar solicitação via WhatsApp
+document.getElementById('btnSolicitar').addEventListener('click', () => {
+    const { distancia, valor } = calcularValor();
+    if (!numeroWhatsApp) {
+        alert('❌ Número do mototaxista não disponível. O link que você usou pode estar desatualizado. Solicite um novo link ao mototaxista.');
+        console.error('WhatsApp não encontrado nos parâmetros. URL:', window.location.href);
+        return;
+    }
+    let numero = numeroWhatsApp.replace(/\D/g, '');
+    if (!numero.startsWith('55')) numero = '55' + numero;
+    const destino = document.getElementById('destino').value.trim() || 'não informado';
+    const tipoVeiculoTexto = tipoVeiculo === 'moto' ? 'moto' : 'carro';
+    const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculoTexto}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+}); 
 </script>
 </body>
 </html>
