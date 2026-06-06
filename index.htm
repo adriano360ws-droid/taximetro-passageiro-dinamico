@@ -35,7 +35,6 @@
     <div class="aviso-erro" id="avisoErro"></div>
     <div class="info-motorista" id="infoMotorista"></div>
 
-    <!-- Destino (endereço) -->
     <div class="campo">
         <label>📍 Destino (endereço):</label>
         <input type="text" id="destino" placeholder="Ex: Rua das Flores, 123, Centro">
@@ -46,13 +45,11 @@
         <div style="font-size: 0.8em; color: #555; margin-top: 5px;">Clique em "Calcular rota" para ver a distância no Google Maps e digite abaixo.</div>
     </div>
 
-    <!-- Distância manual -->
     <div class="campo">
         <label>📏 Distância (km):</label>
         <input type="number" id="distancia" step="0.1" value="5.0" placeholder="Ex: 5.0">
     </div>
 
-    <!-- Período -->
     <div class="campo">
         <label>⏰ Período:</label>
         <div class="periodo-buttons" id="periodoButtons">
@@ -63,8 +60,6 @@
     </div>
 
     <div class="valor" id="valorDisplay">R$ 0,00</div>
-
-    <!-- Explicação dinâmica da tarifa mínima (só aparece se mínimo > 0) -->
     <div class="explicacao" id="explicacaoMinima" style="display: none;"></div>
 
     <button class="btn-whats" id="btnSolicitar">📲 Solicitar corrida por WhatsApp</button>
@@ -72,32 +67,15 @@
 </div>
 
 <script>
-    // ---------- PARÂMETROS DA URL (enviados pelo motorista) ----------
     const urlParams = new URLSearchParams(window.location.search);
-    let nomeMotorista = urlParams.get('nome')?.trim() || 'Motorista';
-    let numeroWhatsApp = urlParams.get('whats')?.trim() || '';
+    let nomeMotorista = urlParams.get('nome')?.trim() || 'Adriano';
+    // ✅ NÚMERO FIXO AQUI: não precisa mais do parâmetro no link
+    let numeroWhatsApp = '5586981291332'; 
     let tipoVeiculo = urlParams.get('tipo')?.trim() || 'moto';
 
-    // 🔍 Depuração: exibe no console os parâmetros lidos
-    console.log('Parâmetros da URL:', {
-        nome: nomeMotorista,
-        whats: numeroWhatsApp,
-        tipo: tipoVeiculo
-    });
-
-    // Tratamento melhorado para pegar o número do WhatsApp
-    if (!numeroWhatsApp) {
-        const match = window.location.search.match(/[?&]whats=([^&]+)/);
-        if (match) numeroWhatsApp = decodeURIComponent(match[1]).trim();
-    }
-
-    // Limpa o número: só números
     numeroWhatsApp = numeroWhatsApp.replace(/\D/g, '');
+    const numeroValido = numeroWhatsApp.length >= 10;
 
-    // Verifica se o número é válido
-    const numeroValido = numeroWhatsApp.length >= 10; // DDD + 8 ou 9 dígitos
-
-    // Tarifas (valores padrão ajustados para as tarifas de MOTO do ADRIANO)
     const tarifas = {
         dia: {
             bandeira: parseFloat(urlParams.get('diaBandeira')) || 3.00,
@@ -116,20 +94,16 @@
         }
     };
 
-    // Aviso se número inválido
     const avisoErro = document.getElementById('avisoErro');
     if (!numeroValido) {
         avisoErro.style.display = 'block';
-        avisoErro.textContent = '⚠️ Link incompleto: número do WhatsApp não encontrado. Peça um novo link ao motorista.';
+        avisoErro.textContent = '⚠️ Erro no número do WhatsApp.';
     }
 
-    // Exibe informações do motorista (com tipo de veículo correto)
     const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
     document.getElementById('infoMotorista').innerHTML = `${tipoIcon} ${nomeMotorista} - ${tipoVeiculo === 'moto' ? 'Moto' : 'Carro'}`;
 
     let periodoSelecionado = 'dia';
-
-    // Configurar botões de período
     document.querySelectorAll('.periodo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('ativo'));
@@ -158,86 +132,63 @@
         const tarifa = tarifas[periodoSelecionado];
         const minimo = tarifa.minimo;
         const explicacaoDiv = document.getElementById('explicacaoMinima');
-        if (minimo <= 0) {
-            explicacaoDiv.style.display = 'none';
-            return;
-        }
+        if (minimo <= 0) { explicacaoDiv.style.display = 'none'; return; }
         const bandeira = tarifa.bandeira;
         const kmValor = tarifa.km;
         let distanciaMax = (minimo - bandeira) / kmValor;
         let texto = '';
         if (distanciaMax <= 0) {
-            texto = `🔔 *Tarifa mínima*: A corrida já começa com o valor mínimo de R$ ${minimo.toFixed(2).replace('.', ',')} (bandeirada).`;
+            texto = `🔔 *Tarifa mínima*: R$ ${minimo.toFixed(2).replace('.', ',')}`;
         } else {
             distanciaMax = Math.ceil(distanciaMax * 10) / 10;
-            texto = `🔔 *Tarifa mínima de R$ ${minimo.toFixed(2).replace('.', ',')}*: vale para corridas de até **${distanciaMax.toFixed(1)} km** neste período. Acima disso, é cobrado R$ ${bandeira.toFixed(2).replace('.', ',')} de bandeirada + R$ ${kmValor.toFixed(2).replace('.', ',')} por km adicional.`;
+            texto = `🔔 Mínimo R$ ${minimo.toFixed(2).replace('.', ',')} até ${distanciaMax.toFixed(1)}km`;
         }
         explicacaoDiv.innerHTML = texto;
         explicacaoDiv.style.display = 'block';
     }
 
-    document.getElementById('distancia').addEventListener('input', () => {
-        calcularValor();
-        atualizarExplicacaoMinima();
-    });
-    calcularValor();
-    atualizarExplicacaoMinima();
+    document.getElementById('distancia').addEventListener('input', () => { calcularValor(); atualizarExplicacaoMinima(); });
+    calcularValor(); atualizarExplicacaoMinima();
 
-    // Botão "Calcular rota"
     document.getElementById('abrirMaps').addEventListener('click', () => {
         const destino = document.getElementById('destino').value.trim();
-        if (!destino) { alert('Por favor, digite o destino.'); return; }
+        if (!destino) { alert('Digite o destino.'); return; }
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
+                pos => {
                     const origem = `${pos.coords.latitude},${pos.coords.longitude}`;
-                    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origem)}&destination=${encodeURIComponent(destino)}&travelmode=driving`;
-                    window.open(url, '_blank');
+                    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origem)}&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
                 },
                 () => {
-                    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
-                    window.open(url, '_blank');
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
                 }
             );
         } else {
-            const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
-            window.open(url, '_blank');
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`, '_blank');
         }
     });
 
-    // Botão "Usar minha localização"
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
         if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
-        navigator.geolocation.getCurrentPosition(
-            () => {
-                const distSimulada = (Math.random() * 14 + 1).toFixed(1);
-                document.getElementById('distancia').value = distSimulada;
-                calcularValor();
-                alert(`Distância aproximada: ${distSimulada} km.\nPara mais precisão, use o botão "Calcular rota" e veja a distância real no Google Maps.`);
-            },
-            () => alert('Não foi possível obter sua localização.')
-        );
+        navigator.geolocation.getCurrentPosition(() => {
+            const dist = (Math.random() * 14 + 1).toFixed(1);
+            document.getElementById('distancia').value = dist;
+            calcularValor();
+            alert(`Distância aproximada: ${dist} km`);
+        }, () => alert('Não foi possível obter localização.'));
     });
 
-    // Enviar solicitação via WhatsApp
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
-        
         if (!numeroValido) {
-            alert('❌ Número do mototaxista não disponível. O link que você usou está incompleto ou desatualizado. Solicite um novo link ao mototaxista.');
+            alert('❌ Número não disponível.');
             return;
         }
-
-        // Adiciona código do país se não tiver
         let numero = numeroWhatsApp;
-        if (!numero.startsWith('55')) numero = '55' + numero;
-
         const destino = document.getElementById('destino').value.trim() || 'não informado';
-        const tipoVeiculoTexto = tipoVeiculo === 'moto' ? 'moto' : 'carro';
-        const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculoTexto}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
-        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-        window.open(url, '_blank');
-    }); 
+        const msg = `Olá *${nomeMotorista}*! Corrida de ${tipoVeiculo}.\n📍 Destino: ${destino}\n📏 ${distancia.toFixed(1)}km\n💰 R$ ${valor.toFixed(2).replace('.', ',')}`;
+        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+    });
 </script>
 </body>
 </html>
