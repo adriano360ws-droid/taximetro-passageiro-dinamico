@@ -26,11 +26,13 @@
         .periodo-btn.ativo { background: #00BFA5; color: white; }
         .explicacao { background: #FFF8E1; padding: 12px; border-radius: 16px; font-size: 0.85em; color: #5D4037; margin: 15px 0; border-left: 4px solid #FFC107; }
         .dica { font-size: 0.8em; color: #666; text-align: center; margin-top: 15px; }
+        .aviso-erro { background: #FFEBEE; color: #C62828; padding: 10px; border-radius: 12px; text-align: center; margin: 10px 0; display: none; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🚕 Calcular corrida</h1>
+    <div class="aviso-erro" id="avisoErro"></div>
     <div class="info-motorista" id="infoMotorista"></div>
 
     <!-- Destino (endereço) -->
@@ -72,9 +74,9 @@
 <script>
     // ---------- PARÂMETROS DA URL (enviados pelo motorista) ----------
     const urlParams = new URLSearchParams(window.location.search);
-    let nomeMotorista = urlParams.get('nome') || 'Motorista';
-    let numeroWhatsApp = urlParams.get('whats') || '';
-    let tipoVeiculo = urlParams.get('tipo') || 'moto';
+    let nomeMotorista = urlParams.get('nome')?.trim() || 'Motorista';
+    let numeroWhatsApp = urlParams.get('whats')?.trim() || '';
+    let tipoVeiculo = urlParams.get('tipo')?.trim() || 'moto';
 
     // 🔍 Depuração: exibe no console os parâmetros lidos
     console.log('Parâmetros da URL:', {
@@ -83,13 +85,17 @@
         tipo: tipoVeiculo
     });
 
-    // Se o número não foi encontrado, tenta recuperar de uma outra forma (ex: parâmetro "whats" com codificação diferente)
-    if (!numeroWhatsApp && window.location.search.includes('whats=')) {
-        // Tenta extrair manualmente
+    // Tratamento melhorado para pegar o número do WhatsApp
+    if (!numeroWhatsApp) {
         const match = window.location.search.match(/[?&]whats=([^&]+)/);
-        if (match) numeroWhatsApp = decodeURIComponent(match[1]);
-        console.log('Número recuperado manualmente:', numeroWhatsApp);
+        if (match) numeroWhatsApp = decodeURIComponent(match[1]).trim();
     }
+
+    // Limpa o número: só números
+    numeroWhatsApp = numeroWhatsApp.replace(/\D/g, '');
+
+    // Verifica se o número é válido
+    const numeroValido = numeroWhatsApp.length >= 10; // DDD + 8 ou 9 dígitos
 
     // Tarifas (valores padrão ajustados para as tarifas de MOTO do ADRIANO)
     const tarifas = {
@@ -109,6 +115,13 @@
             minimo: parseFloat(urlParams.get('fimSemanaMinimo')) || 0
         }
     };
+
+    // Aviso se número inválido
+    const avisoErro = document.getElementById('avisoErro');
+    if (!numeroValido) {
+        avisoErro.style.display = 'block';
+        avisoErro.textContent = '⚠️ Link incompleto: número do WhatsApp não encontrado. Peça um novo link ao motorista.';
+    }
 
     // Exibe informações do motorista (com tipo de veículo correto)
     const tipoIcon = tipoVeiculo === 'moto' ? '🏍️' : '🚖';
@@ -206,22 +219,25 @@
         );
     });
 
-// Enviar solicitação via WhatsApp
-document.getElementById('btnSolicitar').addEventListener('click', () => {
-    const { distancia, valor } = calcularValor();
-    if (!numeroWhatsApp) {
-        alert('❌ Número do mototaxista não disponível. O link que você usou pode estar desatualizado. Solicite um novo link ao mototaxista.');
-        console.error('WhatsApp não encontrado nos parâmetros. URL:', window.location.href);
-        return;
-    }
-    let numero = numeroWhatsApp.replace(/\D/g, '');
-    if (!numero.startsWith('55')) numero = '55' + numero;
-    const destino = document.getElementById('destino').value.trim() || 'não informado';
-    const tipoVeiculoTexto = tipoVeiculo === 'moto' ? 'moto' : 'carro';
-    const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculoTexto}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
-    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-    window.open(url, '_blank');
-}); 
+    // Enviar solicitação via WhatsApp
+    document.getElementById('btnSolicitar').addEventListener('click', () => {
+        const { distancia, valor } = calcularValor();
+        
+        if (!numeroValido) {
+            alert('❌ Número do mototaxista não disponível. O link que você usou está incompleto ou desatualizado. Solicite um novo link ao mototaxista.');
+            return;
+        }
+
+        // Adiciona código do país se não tiver
+        let numero = numeroWhatsApp;
+        if (!numero.startsWith('55')) numero = '55' + numero;
+
+        const destino = document.getElementById('destino').value.trim() || 'não informado';
+        const tipoVeiculoTexto = tipoVeiculo === 'moto' ? 'moto' : 'carro';
+        const mensagem = `Olá *${nomeMotorista}*! Gostaria de solicitar uma corrida de ${tipoVeiculoTexto}.\n\n📍 Destino: ${destino}\n📏 Distância estimada: ${distancia.toFixed(1)} km\n💰 Valor estimado: R$ ${valor.toFixed(2).replace('.', ',')}\n📍 (Informe seu endereço de origem, se necessário)`;
+        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+        window.open(url, '_blank');
+    }); 
 </script>
 </body>
 </html>
