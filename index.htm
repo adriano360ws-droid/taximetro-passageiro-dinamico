@@ -69,7 +69,7 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     let nomeMotorista = urlParams.get('nome')?.trim() || 'Adriano';
-    // ✅ NÚMERO FIXO
+    // ✅ NÚMERO FIXO CORRETO
     let numeroWhatsApp = '5586981291332'; 
     let tipoVeiculo = urlParams.get('tipo')?.trim() || 'moto';
 
@@ -104,8 +104,9 @@
     document.getElementById('infoMotorista').innerHTML = `${tipoIcon} ${nomeMotorista} - ${tipoVeiculo === 'moto' ? 'Moto' : 'Carro'}`;
 
     let periodoSelecionado = 'dia';
-    let minhaLat = null;
-    let minhaLng = null;
+    // ✅ Variáveis GLOBAIS para garantir que salva
+    let minhaLat = "";
+    let minhaLng = "";
 
     document.querySelectorAll('.periodo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -173,29 +174,30 @@
         }
     });
 
-    // 📍 Usar minha localização - AGORA SALVA COORDENADAS REAIS
+    // 📍 Usar minha localização - AGORA SALVA COM CERTEZA
     document.getElementById('usarLocalizacao').addEventListener('click', () => {
         if (!navigator.geolocation) { alert('Geolocalização não suportada.'); return; }
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                minhaLat = pos.coords.latitude;
-                minhaLng = pos.coords.longitude;
+                // ✅ SALVA FORÇADO NAS VARIÁVEIS GLOBAIS
+                minhaLat = pos.coords.latitude.toFixed(6);
+                minhaLng = pos.coords.longitude.toFixed(6);
                 
-                // Coloca no campo de destino
-                document.getElementById('destino').value = `📍 Minha localização: ${minhaLat.toFixed(6)}, ${minhaLng.toFixed(6)}`;
+                // Coloca no campo
+                document.getElementById('destino').value = `📍 Minha localização: ${minhaLat}, ${minhaLng}`;
                 
-                // Distância REAL aproximada
-                const dist = calcularDistanciaKm(minhaLat, minhaLng, -7.1153, -42.8028); // ponto médio PI
+                // Distância real
+                const dist = calcularDistanciaKm(pos.coords.latitude, pos.coords.longitude, -7.1153, -42.8028);
                 document.getElementById('distancia').value = dist.toFixed(1);
                 calcularValor();
                 
-                alert(`✅ Localização capturada!\nLat: ${minhaLat.toFixed(6)}\nLng: ${minhaLng.toFixed(6)}\nDistância aprox: ${dist.toFixed(1)} km`);
+                alert(`✅ Localização SALVA!\nLat: ${minhaLat}\nLng: ${minhaLng}`);
             },
-            () => alert('❌ Não foi possível obter sua localização. Verifique permissões.')
+            () => alert('❌ Erro ao pegar localização.')
         );
     });
 
-    // 📲 Solicitar corrida - AGORA ENVIA LINK COMPLETO DA LOCALIZAÇÃO
+    // 📲 SOLICITAR CORRIDA - LINK SEMPRE VAI ESTAR AQUI!
     document.getElementById('btnSolicitar').addEventListener('click', () => {
         const { distancia, valor } = calcularValor();
         if (!numeroValido) {
@@ -205,24 +207,22 @@
         let numero = numeroWhatsApp;
         const destino = document.getElementById('destino').value.trim() || 'não informado';
         
-        // ✅ AQUI É O PRINCIPAL: se tem localização, envia link do Google Maps
-        let localTexto = '';
-        if (minhaLat && minhaLng) {
-            localTexto = `\n📍 *Minha localização:* https://www.google.com/maps?q=${minhaLat},${minhaLng}`;
+        // ✅ SE TEM LOCALIZAÇÃO, ENVIA LINK GARANTIDO
+        let localTexto = "";
+        if (minhaLat !== "" && minhaLng !== "") {
+            localTexto = `\n📍 *Meu local:* https://www.google.com/maps?q=${minhaLat},${minhaLng}`;
         }
 
         const msg = `Olá *${nomeMotorista}*! Corrida de ${tipoVeiculo}.\n📍 Destino: ${destino}${localTexto}\n📏 ${distancia.toFixed(1)}km\n💰 R$ ${valor.toFixed(2).replace('.', ',')}`;
         window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
     });
 
-    // Função para calcular distância real entre pontos
+    // Calcula distância real
     function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-        const R = 6371; // raio da Terra em km
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-                  Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2); 
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
         return R * c;
     }
